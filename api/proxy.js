@@ -91,42 +91,7 @@ module.exports = async (req, res) => {
 						let html = Buffer.concat(chunks).toString('utf-8');
 						const currentHost = req.headers.host;
 
-						// 注入客户端 JavaScript 来处理动态生成的 docker pull 命令
-						const injectedScript = `
-<script>
-(function() {
-	const proxyHost = '${currentHost}';
-	function replacePullCommands(node) {
-		if (node.nodeType === Node.TEXT_NODE) {
-			const text = node.textContent;
-			if (text.includes('docker pull')) {
-				const newText = text.replace(/docker pull ([\\w][\\w.-]*(?:\\/[\\w][\\w.-]*)?(?::[\\w][\\w.-]*)?)/g, (match, image) => {
-					if (image.startsWith(proxyHost)) return match;
-					if (image.includes('/')) return \`docker pull \${proxyHost}/\${image}\`;
-					return \`docker pull \${proxyHost}/library/\${image}\`;
-				});
-				if (newText !== text) node.textContent = newText;
-			}
-		} else if (node.nodeType === Node.ELEMENT_NODE) {
-			for (let child of node.childNodes) replacePullCommands(child);
-		}
-	}
-	const observer = new MutationObserver((mutations) => {
-		mutations.forEach((mutation) => {
-			mutation.addedNodes.forEach((node) => replacePullCommands(node));
-		});
-	});
-	if (document.readyState === 'loading') {
-		document.addEventListener('DOMContentLoaded', () => {
-			replacePullCommands(document.body);
-			observer.observe(document.body, { childList: true, subtree: true });
-		});
-	} else {
-		replacePullCommands(document.body);
-		observer.observe(document.body, { childList: true, subtree: true });
-	}
-})();
-</script>`;
+						const injectedScript = `<script>(function(){const p='${currentHost}';function r(t){if(!t||!t.includes('docker pull'))return t;return t.replace(/docker pull ([\\w][\\w.-]*(?:\\/[\\w][\\w.-]*)?(?::[\\w][\\w.-]*)?)/g,(m,i)=>{if(i.startsWith(p))return m;if(i.includes('/'))return \`docker pull \${p}/\${i}\`;return \`docker pull \${p}/library/\${i}\`;});}const o=navigator.clipboard.writeText;navigator.clipboard.writeText=function(t){return o.call(navigator.clipboard,r(t));};function u(n){if(n.nodeType===Node.TEXT_NODE){const t=n.textContent;const w=r(t);if(w!==t)n.textContent=w;}else if(n.nodeType===Node.ELEMENT_NODE){for(let c of n.childNodes)u(c);}}const b=new MutationObserver((m)=>{m.forEach((t)=>{t.addedNodes.forEach((n)=>u(n));});});if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',()=>{u(document.body);b.observe(document.body,{childList:true,subtree:true});});}else{u(document.body);b.observe(document.body,{childList:true,subtree:true});}})();</script>`;
 
 						html = html.replace(/<\/body>/i, injectedScript + '</body>');
 
